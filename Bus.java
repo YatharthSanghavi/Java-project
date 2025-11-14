@@ -48,7 +48,8 @@ class Bus {
     String time;
     private int totalSeats;
     private boolean[] seatStatus; // true = booked, false = available
-    private double baseFare;
+    private double distanceKm;
+    private double pricePerKm;
     static int busCount = 0;
     
     static {
@@ -56,7 +57,7 @@ class Bus {
     }
 
     public Bus(int id, String busNo, String operator, String type, String from, 
-               String to, String time, int totalSeats, double baseFare) {
+               String to, String time, int totalSeats, double distanceKm, double pricePerKm) {
         this.id = id;
         this.busNo = busNo;
         this.operator = operator;
@@ -65,7 +66,8 @@ class Bus {
         this.to = to;
         this.time = time;
         this.totalSeats = totalSeats;
-        this.baseFare = baseFare;
+        this.distanceKm = distanceKm;
+        this.pricePerKm = pricePerKm;
         this.seatStatus = new boolean[totalSeats + 1]; // index 0 unused
         busCount++;
     }
@@ -74,7 +76,14 @@ class Bus {
     public int getId() { return id; }
     public String getBusNo() { return busNo; }
     public int getTotalSeats() { return totalSeats; }
-    public double getBaseFare() { return baseFare; }
+    // Returns fare per seat = distance * pricePerKm
+    public double getBaseFare() { return distanceKm * pricePerKm; }
+
+    public double getDistanceKm() { return distanceKm; }
+    public double getPricePerKm() { return pricePerKm; }
+
+    public void setDistanceKm(double distanceKm) { this.distanceKm = distanceKm; }
+    public void setPricePerKm(double pricePerKm) { this.pricePerKm = pricePerKm; }
     
     // Setters
     public void setOperator(String operator) { this.operator = operator; }
@@ -117,7 +126,8 @@ class Bus {
         System.out.println("Route: " + from + " → " + to);
         System.out.println("Departure: " + time);
         System.out.println("Available Seats: " + getAvailableSeats() + "/" + totalSeats);
-        System.out.println("Base Fare: Rs." + baseFare);
+        System.out.println("Distance: " + distanceKm + " km | Price per km: Rs." + pricePerKm);
+        System.out.println("Base Fare (per seat): Rs." + getBaseFare());
         System.out.println("==================================");
     }
 }
@@ -241,9 +251,9 @@ class Booking extends Payment implements Cancellable {
     
     @Override
     public double calculateRefund(int hoursBeforeJourney) {
-        if (hoursBeforeJourney >= 24) return finalAmount * 0.90;
-        else if (hoursBeforeJourney >= 12) return finalAmount * 0.50;
-        else if (hoursBeforeJourney >= 6) return finalAmount * 0.25;
+        if (hoursBeforeJourney >= 24) return finalAmount * 0.90; // provide 90% refund
+        else if (hoursBeforeJourney >= 12) return finalAmount * 0.50; // provide 50% refund
+        else if (hoursBeforeJourney >= 6) return finalAmount * 0.25; // provide 25% refund
         else return 0;
     }
     

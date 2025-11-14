@@ -45,14 +45,19 @@ class AdminDashboard {
                 throw new InvalidBusException("Number of seats must be positive!");
             }
             
-            System.out.print("Enter Base Fare (Rs.): ");
-            double fare = sc.nextDouble();
-            
-            if (fare <= 0) {
-                throw new InvalidBusException("Fare must be positive!");
+            System.out.print("Enter Distance (km): ");
+            double distanceKm = sc.nextDouble();
+            if (distanceKm <= 0) {
+                throw new InvalidBusException("Distance must be positive!");
             }
-            
-            Bus newBus = new Bus(id, busNo, operator, type, from, to, time, seats, fare);
+
+            System.out.print("Enter Price per km (Rs.): ");
+            double pricePerKm = sc.nextDouble();
+            if (pricePerKm <= 0) {
+                throw new InvalidBusException("Price per km must be positive!");
+            }
+
+            Bus newBus = new Bus(id, busNo, operator, type, from, to, time, seats, distanceKm, pricePerKm);
             
             if (busCount < buses.length) {
                 buses[busCount++] = newBus;
@@ -113,11 +118,12 @@ class AdminDashboard {
             System.out.println("4. To Location");
             System.out.println("5. Departure Time");
             System.out.println("6. All Details");
+            System.out.println("7. Fare Settings (Distance & Price per km)");
             System.out.print("Choose what to update: ");
-            
+
             int choice = sc.nextInt();
-            
-            if (choice < 1 || choice > 6) {
+
+            if (choice < 1 || choice > 7) {
                 throw new InvalidBusException("Invalid choice!");
             }
             
@@ -174,6 +180,16 @@ class AdminDashboard {
                     System.out.print("Enter new departure time: ");
                     time = sc.next();
                     targetBus.setTime(time);
+                    break;
+                case 7:
+                    System.out.print("Enter new distance (km): ");
+                    double newDistance = sc.nextDouble();
+                    if (newDistance <= 0) throw new InvalidBusException("Distance must be positive!");
+                    System.out.print("Enter new price per km (Rs.): ");
+                    double newPrice = sc.nextDouble();
+                    if (newPrice <= 0) throw new InvalidBusException("Price per km must be positive!");
+                    targetBus.setDistanceKm(newDistance);
+                    targetBus.setPricePerKm(newPrice);
                     break;
             }
             

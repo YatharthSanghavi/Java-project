@@ -1,19 +1,21 @@
 import java.util.Scanner;
-import java.util.ArrayList;
 
 class Passenger extends User {
     private String phone;
-    private ArrayList<Booking> myBookings;
+    private Booking[] myBookings;
+    private int myBookingsCount;
     Scanner sc = new Scanner(System.in);
     
     public Passenger() {
-        myBookings = new ArrayList<>();
+        myBookings = new Booking[0]; // No initial capacity
+        myBookingsCount = 0;
     }
 
     public Passenger(int id, String name, String email, String phone) {
         super(id, name, email);
         this.phone = phone;
-        myBookings = new ArrayList<>();
+        myBookings = new Booking[0]; // No initial capacity
+        myBookingsCount = 0;
     }
     
     void searchBus() {
@@ -77,10 +79,27 @@ class Passenger extends User {
             System.out.println("\n=== BOOK TICKET ===");
             
             // Show available buses
-            showBus();
+            System.out.print("Enter From Location: ");
+            String from = sc.next();
+            System.out.print("Enter To Location: ");
+            String to = sc.next();
+            System.out.println("\nSearching buses from " + from + " to " + to + "...\n");
             
-            if (AdminDashboard.busCount == 0) {
-                return;
+            boolean found = false;
+            for (int i = 0; i < AdminDashboard.busCount; i++) {
+                if (AdminDashboard.buses[i].from.equalsIgnoreCase(from) && 
+                    AdminDashboard.buses[i].to.equalsIgnoreCase(to)) {
+                    AdminDashboard.buses[i].show();
+                    found = true;
+                }
+            }
+            
+            if (!found) {
+                System.out.println("================================");
+                System.out.println("No buses found for the given route.");
+                System.out.println("================================");
+
+                throw new InvalidBusException("NO BUSES FOUND");
             }
             
             // Get bus ID
@@ -111,12 +130,20 @@ class Passenger extends User {
             System.out.print("Enter Age: ");
             int age = sc.nextInt();
             
-            System.out.print("Enter Contact Number: ");
+            System.out.print("Enter Contact Number (10 digits): ");
             String contact = sc.next();
+            if (!contact.matches("\\d{10}")) {
+                throw new Exception("Invalid contact number. Must be 10 digits.");
+            }
             
             // Journey details
             System.out.print("\nEnter Journey Date (DD/MM/YYYY): ");
-            String journeyDate = sc.next();
+            String journeyDateStr = sc.next();
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            java.time.LocalDate journeyDate = java.time.LocalDate.parse(journeyDateStr, formatter);
+            if (journeyDate.isBefore(java.time.LocalDate.now())) {
+                throw new Exception("Journey date cannot be in the past.");
+            }
             
             // Number of tickets
             System.out.println("\nAvailable Seats: " + selectedBus.getAvailableSeats());
@@ -131,19 +158,20 @@ class Passenger extends User {
             int[] seats = new int[numTickets];
             System.out.println("\n--- SEAT SELECTION ---");
             for (int i = 0; i < numTickets; i++) {
-                System.out.print("Select Seat " + (i + 1) + " (1-" + selectedBus.getTotalSeats() + "): ");
-                int seatNo = sc.nextInt();
-                
-                if (!selectedBus.isSeatAvailable(seatNo)) {
-                    throw new InvalidSeatException("Seat " + seatNo + " is not available!");
+                while (true) {
+                    System.out.print("Select Seat " + (i + 1) + " (1-" + selectedBus.getTotalSeats() + "): ");
+                    int seat = sc.nextInt();
+                    if (!selectedBus.isSeatAvailable(seat)) {
+                        System.out.println("Seat " + seat + " is not available! Please choose another.");
+                    } else {
+                        seats[i] = seat;
+                        break;
+                    }
                 }
-                
-                seats[i] = seatNo;
-                selectedBus.bookSeat(seatNo);
             }
             
             // Create booking
-            Booking booking = new Booking(name, gender, age, contact, selectedBus, seats, journeyDate);
+            Booking booking = new Booking(name, gender, age, contact, selectedBus, seats, journeyDate.format(formatter));
             double fare = booking.calculateFare();
             
             // Show fare and confirm
@@ -153,11 +181,7 @@ class Passenger extends User {
             String confirm = sc.next();
             
             if (!confirm.equalsIgnoreCase("yes")) {
-                // Cancel seats
-                for (int seat : seats) {
-                    selectedBus.cancelSeat(seat);
-                }
-                System.out.println("Booking cancelled.");
+                System.out.println("\nBooking cancelled by user.");
                 return;
             }
             
@@ -176,34 +200,47 @@ class Passenger extends User {
                 case 2: payMethod = "UPI"; break;
                 case 3: payMethod = "Net Banking"; break;
                 case 4: payMethod = "Cash"; break;
-                default: payMethod = "Cash";
+                default: throw new Exception("Invalid payment method.");
             }
             
             booking.setPaymentMethod(payMethod);
             
             if (booking.processPayment()) {
-                myBookings.add(booking);
+                // Book seats only after successful payment
+                for (int seat : seats) {
+                    selectedBus.bookSeat(seat);
+                }
+                
+                // Add booking to myBookings
+                Booking[] newBookings = new Booking[myBookingsCount + 1];
+                System.arraycopy(myBookings, 0, newBookings, 0, myBookingsCount);
+                newBookings[myBookingsCount] = booking;
+                myBookings = newBookings;
+                myBookingsCount++;
+                
+                System.out.println("\n✓ Booking successful!");
                 booking.generateReceipt();
-                System.out.println("\n✓ Booking Successful! Your Booking ID is: " + booking.getBookingId());
             } else {
-                throw new PaymentFailedException("Payment processing failed!");
+                throw new PaymentFailedException("Payment failed. Please try again.");
             }
             
         } catch (InvalidBusException | InvalidSeatException | PaymentFailedException e) {
             System.out.println("\n✗ ERROR: " + e.getMessage());
         } catch (Exception e) {
             System.out.println("\n✗ An error occurred: " + e.getMessage());
+            sc.nextLine(); // Consume the invalid input
         }
     }
     
     void cancelTicket() {
-        if (myBookings.isEmpty()) {
+        if (myBookingsCount == 0) {
             System.out.println("No bookings found to cancel.");
             return;
         }
         
         System.out.println("\n=== YOUR BOOKINGS ===");
-        for (Booking b : myBookings) {
+        for (int i = 0; i < myBookingsCount; i++) {
+            Booking b = myBookings[i];
             if (!b.isCancelled()) {
                 System.out.println("Booking ID: " + b.getBookingId());
             }
@@ -212,7 +249,8 @@ class Passenger extends User {
         System.out.print("\nEnter Booking ID to cancel: ");
         int bookingId = sc.nextInt();
         
-        for (Booking b : myBookings) {
+        for (int i = 0; i < myBookingsCount; i++) {
+            Booking b = myBookings[i];
             if (b.getBookingId() == bookingId && !b.isCancelled()) {
                 System.out.print("Hours before journey: ");
                 int hours = sc.nextInt();
@@ -236,13 +274,14 @@ class Passenger extends User {
     }
     
     void viewMyBookings() {
-        if (myBookings.isEmpty()) {
+        if (myBookingsCount == 0) {
             System.out.println("\nNo bookings found.");
             return;
         }
         
         System.out.println("\n=== MY BOOKINGS ===");
-        for (Booking b : myBookings) {
+        for (int i = 0; i < myBookingsCount; i++) {
+            Booking b = myBookings[i];
             System.out.println("Booking ID: " + b.getBookingId() + 
                              " | Status: " + (b.isCancelled() ? "CANCELLED" : "CONFIRMED"));
         }
